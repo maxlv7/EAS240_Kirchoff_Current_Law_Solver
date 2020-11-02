@@ -1,6 +1,7 @@
 #include "EAS240_PP1_functions.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 void SolveCircuit(const Branch *circuit, double *voltages, int numBranches, int numNodes){
 
@@ -8,6 +9,9 @@ void SolveCircuit(const Branch *circuit, double *voltages, int numBranches, int 
     double **matrix = (double **)malloc(sizeof(double *) * numNodes);
     for (int i = 0; i < numNodes + 1; i++){
         matrix[i] = (double *)malloc(sizeof(double) * (numNodes + 1));
+    }
+    for (size_t i = 0; i < numNodes; i++){
+        memset(matrix[i], 0, (numNodes + 1) * sizeof(double));
     }
     for (int i = 0; i < numNodes; ++i){
         //get souce startNode
@@ -57,23 +61,27 @@ void SolveCircuit(const Branch *circuit, double *voltages, int numBranches, int 
     }
     //Using dynamic memory allocation create 2D array and store every value at matrix from cm to arr
     double *arr = (double *)malloc(sizeof(double) * numNodes * (numNodes + 1));
+    // int k = 0;
     for (int i = 0; i < numNodes; i++){
-        for (int j = 0; j < numNodes + 1; ++j)
+        for (int j = 0; j < numNodes + 1; j++)
         {
             arr[i * (numNodes + 1) + j] = matrix[i][j];
         }
     }
     //Funcrtion call
     PerformGaussElimination(arr, numNodes, numNodes + 1);
-    for (int i = 0; i < numNodes; ++i){
+    for (int i = 0; i < numNodes; i++){
         voltages[i]  = arr[(i+1) * (numNodes+1)-1];
     }
 
 }
 
 void PrintCircuit(char filename[], const Branch *circuit, double *voltages, int numBranches, int numNodes){
-
     FILE* fp = fopen(filename, "a+");
+//    printf("file name[%s]\n",filename);
+    if(!fp){
+        puts("no such file!\n");
+    }
     for (int i = 1; i <= numNodes; i++){
         //Print Voltage
         fprintf(fp,"V%d = %10.4lf\n", i, voltages[i - 1]);
@@ -94,54 +102,44 @@ void PrintCircuit(char filename[], const Branch *circuit, double *voltages, int 
     fclose(fp);
 }
 
-void PerformGaussElimination(double *arr, int ROWS, int COLS){
-    //Create 2D array using dynamic memory allocation
-    double **a = (double **)malloc(COLS * sizeof(double));
-    for (int i = 0; i < COLS; i++){
-        a[i] = (double *)malloc(ROWS * sizeof(double));
+void PerformGaussElimination(double* arr, int ROWS, int COLS)
+{
+    double **arr_t = (double **)malloc(ROWS * sizeof(double*));
+    for (int i = 0; i < ROWS; i++){
+        arr_t[i] = (double *)malloc(COLS * sizeof(double));
     }
-    double x;
-    double y;
-    //Map 1D array to 2D array through rows and columns mapping
-    for (int i = 0; i < ROWS; ++i){
-        for (int j = 0; j < COLS; ++j){
-            a[i][j] = arr[i * COLS + j];
+//    arr ->arr_t
+    for (int i = 0; i < ROWS; ++i) {
+        for (int j = 0; j < COLS; ++j) {
+            arr_t[i][j] = arr[i*COLS+j];
         }
     }
-    //Calculate  Gauss-Jordan elimination
-    for (int i = 0; i < ROWS; ++i){
-        for (int j = 0; j < COLS; ++j){
-            if (i != j){
-                y = a[i][i];
-                x = a[j][i] / y;
-                for (int k = 0; k < COLS; ++k){
-                    a[j][k] -= (a[i][k] * x);
+    for (int k = 0; k < ROWS; k++) {
+        for (int i = 0; i < ROWS; i++) {
+            double f = arr_t[i][k];
+            double l = arr_t[k][k];
+            if (i != k) {
+                for (int j = 0; j < COLS; j++) {
+                    arr_t[i][j] = arr_t[i][j] - (f / l) * arr_t[k][j];
                 }
             }
         }
     }
-    //Irrelevant numbers return to 0
-    for (int i = 0; i < ROWS; ++i){
-        for (int j = 0; j < COLS; ++j){
-            if ((i != j) && (j != ROWS)){
-                a[i][j] = 0;
-            }
+
+    for (int i = 0; i < ROWS; i++) {
+        double a = arr_t[i][i];
+        for (int j = 0; j < COLS; j++) {
+            arr_t[i][j] = arr_t[i][j] / a;
         }
     }
-    //Return the diagonal of the matrix to 1, print and calculate final result
-    for (int i = 0; i < ROWS; ++i){
-        a[i][ROWS] /= a[i][i];
-        a[i][i] = 1;
-        // printf("V%d = %.4lf\n", i + 1, a[i][ROWS]);
-        //save voltage to array for voltage
-    }
-    //Copy the final number from 2D array to 1D array
-    for (int i = 0; i < ROWS; ++i){
-        for (int j = 0; j < COLS; ++j){
-            arr[i * COLS + j] = a[i][j];
+
+    for (int i = 0; i < ROWS; ++i) {
+        for (int j = 0; j < COLS; ++j) {
+            arr[i*COLS+j] = arr_t[i][j] ;
         }
     }
-    //Free memory for a
-    free(a);
-    //Return 1D array back to main function
+
+    for (int i = 0; i < ROWS ; ++i) {
+        free(arr_t[i]);
+    }
 }
